@@ -1,0 +1,104 @@
+"""
+Noam Cohen
+Data science Intern Challenge
+Application for summer 2022 data science itnern position
+"""
+
+import numpy as np
+import pandas as pd
+
+data = pd.read_csv('/Users/noam/Downloads/shopify_data.csv')
+## A)
+## The metric we calculate (AOV) seems to be too high for sneakers. The data might not be clean.
+
+## The data seems to include 3 types of entries
+## Type 1: Valid entries where the order is for 1-4 sneakers at approximately $130 each
+
+## Type 2: Large bulk orders of 2000 sneakers at a time each valued at $352. Purchased at store id 42
+## This might suggest that the store is selling in bulk (not a retail store). Note: It is strange to
+## mark up the price of a sneaker when selling in bulk (usually the prices are lowered)
+## In a business context, the data may suggest that the store is laundering money.
+## There is enough reason to assume these entries are outliers and should not be heavily weighted in our metric 
+
+## Type 3: Normal order amounts of sneakers (1-4) but each selling for $25725 each. Purchased at store id 78.
+## The price per sneaker is way too high. This might also suggest possible money laundering and thus our metric shouldnt place
+## importance on these entries
+
+## B)
+## To get around the issues with caused by the type 2 and type 3 entries we can do either of the following:
+## Solution 1: Calculate median order value instead of average order value. Since the valid type 1 entries should
+## approximate a discrete normal distribution of order values, the median might help us approximate the average by eliminating
+## the outlier data
+
+## Solution 2:
+## Calculate the mean order value normally but exclude the bad data. We could simply exclude entries with order amount
+## above 1300 (realistically it would be absurd for someone to purchase more than 10 sneakers at a time)
+
+## Solution 3:
+## We could even just exclude the entries that were made at shop_id 78 or 42 if we suspect that there is
+## money laudnering going there
+
+## C)
+## Solution 1: Median order amount
+print(data["order_amount"].median())
+## result: $284
+
+## Solution 2: Mean order amount for orders not above 1300
+d = data.loc[data["order_amount"] < 1300]
+print(d["order_amount"].mean())
+## result: $301.83704904742604
+
+## Solution 3: Mean order amount for orders not made at shop_id 78 and 42
+d = data.loc[(data["shop_id"] != 78) & (data["shop_id"] != 42)]
+print(d["order_amount"].mean())
+## result: $300.15582296
+
+
+## Question 2
+## A)
+## SELECT count(OrderID)
+## FROM (Orders 
+## INNER JOIN Shippers
+## ON Orders.ShipperID=Shippers.ShipperID)
+## WHERE ShipperName='Speedy Express';
+
+## B) Uses correlated subquery
+##SELECT LastName
+##	from (SELECT count(OrderID) as NumOrders, LastName
+##		FROM (Orders 
+##		INNER JOIN Employees
+##		ON Orders.EmployeeID=Employees.EmployeeID)
+##		GROUP BY LastName)
+##    WHERE NumOrders =
+##(SELECT MAX(NumOrders) as maxOrders
+##	FROM (SELECT count(OrderID) as NumOrders, LastName
+##		FROM (Orders 
+##		INNER JOIN Employees
+##		ON Orders.EmployeeID=Employees.EmployeeID)
+##		GROUP BY LastName));
+
+## C)
+##Select ProductName FROM Products
+##WHERE ProductID =
+## (SELECT ProductID FROM
+##	(SELECT count(CustomerID) as C, ProductID 
+##	FROM OrderDetails INNER JOIN Orders
+##	ON OrderDetails.OrderID=Orders.OrderID
+##	WHERE CustomerID in
+##		(Select Customers.CustomerID as OID FROM Orders 
+##		INNER JOIN Customers
+##		ON Orders.CustomerID = Customers.CustomerID
+##		WHERE Country = 'Germany')
+##	GROUP BY ProductID)
+## WHERE C = 
+##	(SELECT max(C) FROM(
+##		SELECT count(CustomerID) as C, ProductID 
+##		FROM OrderDetails INNER JOIN Orders
+##		ON OrderDetails.OrderID=Orders.OrderID
+##		WHERE CustomerID in
+##			(Select Customers.CustomerID as OID FROM Orders 
+##			INNER JOIN Customers
+##			ON Orders.CustomerID = Customers.CustomerID
+##			WHERE Country = 'Germany')
+##		GROUP BY ProductID))
+##);
